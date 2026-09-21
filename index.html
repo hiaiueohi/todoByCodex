@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#6750A4" />
+    <meta name="description" content="一瞬で追加できる、スマホ最優先のToDoアプリ" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="icons/icon-192.svg" />
+    <link rel="stylesheet" href="styles.css" />
+    <title>サクッとToDo</title>
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="app-header">
+        <div>
+          <p class="eyebrow" id="today-label"></p>
+          <h1>サクッと<span>ToDo</span></h1>
+        </div>
+        <button class="icon-button" id="theme-button" type="button" aria-label="ダークモードに切り替え" title="テーマを切り替え">
+          <span aria-hidden="true">☾</span>
+        </button>
+      </header>
+
+      <section class="schedule" aria-labelledby="schedule-heading">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">タイムライン</p>
+            <h2 id="schedule-heading">今日のスケジュール</h2>
+          </div>
+          <span class="schedule-count" id="schedule-count">予定なし</span>
+        </div>
+        <ol class="schedule-list" id="schedule-list"></ol>
+        <p class="schedule-empty" id="schedule-empty">時刻を入れた「今日」のタスクが、ここに順番に表示されます。</p>
+      </section>
+
+      <section class="summary" aria-label="今日の進捗">
+        <div>
+          <p>今日の進捗</p>
+          <strong id="progress-text">0 / 0 完了</strong>
+        </div>
+        <div class="progress-ring" id="progress-ring" aria-label="完了率 0%"><span id="progress-percent">0%</span></div>
+      </section>
+
+      <nav class="filters" aria-label="タスクの期間">
+        <button class="filter is-active" type="button" data-period="today">今日 <span id="count-today">0</span></button>
+        <button class="filter" type="button" data-period="week">今週 <span id="count-week">0</span></button>
+        <button class="filter" type="button" data-period="later">いつか <span id="count-later">0</span></button>
+      </nav>
+
+      <section class="task-area" aria-live="polite">
+        <div class="task-toolbar">
+          <h2 id="list-heading">今日のタスク</h2>
+          <button class="text-button" id="clear-completed" type="button" hidden>完了を消去</button>
+        </div>
+        <ul class="task-list" id="task-list"></ul>
+        <div class="empty-state" id="empty-state" hidden>
+          <div class="empty-icon">✓</div>
+          <h2>タスクはありません</h2>
+          <p>右下の＋から、思いついたことを<br />すぐに追加しましょう。</p>
+        </div>
+      </section>
+    </main>
+
+    <button class="fab" id="open-add" type="button" aria-label="タスクを追加">＋</button>
+
+    <dialog class="task-dialog" id="task-dialog" aria-labelledby="dialog-title">
+      <form id="task-form" method="dialog">
+        <div class="dialog-handle"></div>
+        <div class="dialog-title-row">
+          <h2 id="dialog-title">タスクを追加</h2>
+          <button class="icon-button" type="button" id="close-dialog" aria-label="閉じる">×</button>
+        </div>
+        <label class="sr-only" for="task-input">タスクの内容</label>
+        <input id="task-input" name="task" maxlength="120" autocomplete="off" placeholder="何をする？" required />
+        <fieldset class="period-picker">
+          <legend>いつやる？</legend>
+          <div>
+            <label><input type="radio" name="period" value="today" checked /><span>今日</span></label>
+            <label><input type="radio" name="period" value="week" /><span>今週</span></label>
+            <label><input type="radio" name="period" value="later" /><span>いつか</span></label>
+          </div>
+        </fieldset>
+        <fieldset class="time-picker">
+          <legend>時間帯 <span>（任意）</span></legend>
+          <div>
+            <label>開始<input id="start-time" name="startTime" type="time" /></label>
+            <span>〜</span>
+            <label>終了<input id="end-time" name="endTime" type="time" /></label>
+          </div>
+          <p id="time-hint">「今日」を選ぶと、上のスケジュールにも表示されます。</p>
+        </fieldset>
+        <button class="add-button" type="submit">追加する</button>
+      </form>
+    </dialog>
+
+    <template id="task-template">
+      <li class="task-item">
+        <div class="task-main"><span class="task-time"></span><span class="task-title"></span></div>
+        <button class="complete-button" type="button"></button>
+        <button class="delete-button" type="button" aria-label="タスクを削除">×</button>
+      </li>
+    </template>
+    <script src="app.js"></script>
+  </body>
+</html>
