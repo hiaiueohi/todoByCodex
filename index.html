@@ -22,11 +22,21 @@
         </button>
       </header>
 
+      <section class="calendar" aria-labelledby="calendar-heading">
+        <div class="calendar-head">
+          <button class="calendar-nav" id="previous-month" type="button" aria-label="前の月">‹</button>
+          <div><p class="eyebrow">日付を選択</p><h2 id="calendar-heading"></h2></div>
+          <button class="calendar-nav" id="next-month" type="button" aria-label="次の月">›</button>
+        </div>
+        <div class="weekdays" aria-hidden="true"><span>日</span><span>月</span><span>火</span><span>水</span><span>木</span><span>金</span><span>土</span></div>
+        <div class="calendar-grid" id="calendar-grid"></div>
+      </section>
+
       <section class="schedule" aria-labelledby="schedule-heading">
         <div class="section-heading">
           <div>
             <p class="eyebrow">タイムライン</p>
-            <h2 id="schedule-heading">今日のスケジュール</h2>
+            <h2 id="schedule-heading">一日のスケジュール</h2>
           </div>
           <span class="schedule-count" id="schedule-count">予定なし</span>
         </div>
@@ -40,6 +50,11 @@
           <strong id="progress-text">0 / 0 完了</strong>
         </div>
         <div class="progress-ring" id="progress-ring" aria-label="完了率 0%"><span id="progress-percent">0%</span></div>
+      </section>
+
+      <section class="notification-setting" aria-label="通知設定">
+        <div><strong>期限切れの通知</strong><p id="notification-message">終了時刻を過ぎても未完了の予定をお知らせします。</p></div>
+        <button id="notification-button" type="button">通知を有効にする</button>
       </section>
 
       <nav class="filters" aria-label="タスクの期間">
@@ -72,7 +87,8 @@
           <button class="icon-button" type="button" id="close-dialog" aria-label="閉じる">×</button>
         </div>
         <label class="sr-only" for="task-input">タスクの内容</label>
-        <input id="task-input" name="task" maxlength="120" autocomplete="off" placeholder="何をする？" required />
+        <input id="task-input" name="task" maxlength="120" autocomplete="off" placeholder="何をする？ 例：会議_1345.1546" required />
+        <label class="date-picker">日付<input id="task-date" name="date" type="date" required /></label>
         <fieldset class="period-picker">
           <legend>いつやる？</legend>
           <div>
@@ -90,6 +106,17 @@
           </div>
           <p id="time-hint">「今日」を選ぶと、上のスケジュールにも表示されます。</p>
         </fieldset>
+        <fieldset class="repeat-picker">
+          <legend>繰り返し</legend>
+          <select id="repeat-select" name="recurrence">
+            <option value="none">繰り返さない</option>
+            <option value="daily">毎日</option>
+            <option value="weekly">毎週</option>
+            <option value="monthly">毎月</option>
+          </select>
+          <p>繰り返し中のタスクを編集すると、ここで解除できます。</p>
+        </fieldset>
+        <button class="remove-repeat-button" id="remove-repeat" type="button" hidden>繰り返しをなくす</button>
         <button class="add-button" type="submit">追加する</button>
       </form>
     </dialog>
