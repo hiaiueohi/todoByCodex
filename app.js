@@ -1,5 +1,6 @@
 const STORAGE_KEY = 'sakutto-todo.tasks.v2';
 const LEGACY_KEY = 'sakutto-todo.tasks.v1';
+const BACKUP_KEY = 'sakutto-todo.tasks.backup.v1';
 const THEME_KEY = 'sakutto-todo.theme.v1';
 const NOTIFIED_KEY = 'sakutto-todo.notified.v1';
 const PROFILE_KEY = 'sakutto-todo.profile.v1';
@@ -22,9 +23,16 @@ function loadTasks() {
     const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) || localStorage.getItem(LEGACY_KEY) || '[]');
     const today = dateToISO(new Date());
     return stored.map(task => ({ ...task, date: task.date || today, recurrence: task.recurrence || 'none', doneDates: task.doneDates || (task.done ? [task.date || today] : []) }));
-  } catch { return []; }
+  } catch {
+    try {
+      const backup = JSON.parse(localStorage.getItem(BACKUP_KEY) || '[]');
+      const today = dateToISO(new Date());
+      return backup.map(task => ({ ...task, date: task.date || today, recurrence: task.recurrence || 'none', doneDates: task.doneDates || (task.done ? [task.date || today] : []) }));
+    } catch { return []; }
+  }
 }
-function saveTasks() { localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks)); }
+function saveTasks() { const serialized = JSON.stringify(tasks); localStorage.setItem(STORAGE_KEY, serialized); localStorage.setItem(BACKUP_KEY, serialized); }
+if (!localStorage.getItem(BACKUP_KEY) || !localStorage.getItem(STORAGE_KEY)) saveTasks();
 function celebratedDays() { try { return JSON.parse(localStorage.getItem(DAILY_CELEBRATED_KEY) || '[]'); } catch { return []; } }
 function loadProfile() { try { return JSON.parse(localStorage.getItem(PROFILE_KEY)); } catch { return null; } }
 function saveProfile(nickname) { localStorage.setItem(PROFILE_KEY, JSON.stringify({ nickname })); }
@@ -116,7 +124,7 @@ function renderSchedule() {
   if (selectedDate === dateToISO(new Date())) {
     const now = new Date(); const minutes = now.getHours() * 60 + now.getMinutes();
     if (minutes >= 360 && minutes <= 1380) {
-      const line = document.createElement('li'); line.className = 'now-line'; line.style.setProperty('--now-top', `${(minutes - 360) * 0.8}px`);
+      const line = document.createElement('li'); line.id = 'now-line'; line.className = 'now-line'; line.style.setProperty('--now-top', `${(minutes - 360) * 0.8}px`);
       line.innerHTML = `<span>${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}</span>`; scheduleList.append(line);
     }
   }
@@ -192,6 +200,15 @@ function showDailyCompletionEffect(date) {
   document.body.append(effect); localStorage.setItem(DAILY_CELEBRATED_KEY, JSON.stringify([...celebrated.slice(-59), date]));
   setTimeout(() => effect.remove(), 3200);
 }
+function updateNowLine() {
+  if (selectedDate !== dateToISO(new Date())) return;
+  const now = new Date(); const minutes = now.getHours() * 60 + now.getMinutes() + now.getSeconds() / 60;
+  if (minutes < 360 || minutes > 1380) { $('#now-line')?.remove(); return; }
+  const line = $('#now-line');
+  if (!line) { renderSchedule(); return; }
+  line.style.setProperty('--now-top', `${(minutes - 360) * 0.8}px`);
+  line.querySelector('span').textContent = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+}
 function setupCollapsibles() {
   const bindings = [
     ['#calendar-heading', '.calendar'],
@@ -231,5 +248,7 @@ form.addEventListener('submit', event => {
 function setupTheme() { const saved = localStorage.getItem(THEME_KEY); if (saved === 'dark' || (!saved && matchMedia('(prefers-color-scheme: dark)').matches)) document.documentElement.classList.add('dark'); $('#theme-button').addEventListener('click', () => { const dark = document.documentElement.classList.toggle('dark'); localStorage.setItem(THEME_KEY, dark ? 'dark' : 'light'); }); }
 $('#today-label').textContent = ''; setupTheme(); renderAppTitle(); updateNotificationButton(); setupCollapsibles(); render(); checkOverdueTasks();
 if (loadProfile() === null) openProfileDialog();
-setInterval(() => { if (selectedDate === dateToISO(new Date())) { renderSchedule(); renderTasks(); } checkOverdueTasks(); }, 60_000);
+setInterval(updateNowLine, 1_000);
+setInterval(() => { if (selectedDate === dateToISO(new Date())) renderTasks(); checkOverdueTasks(); }, 60_000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) updateNowLine(); });
 if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./service-worker.js'));
