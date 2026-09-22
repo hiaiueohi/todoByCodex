@@ -59,8 +59,27 @@ function renderCalendar() {
     if (iso === dateToISO(new Date())) button.classList.add('is-today');
     if (tasksOn(iso).length) button.classList.add('has-tasks');
     button.setAttribute('aria-label', `${iso}${tasksOn(iso).length ? `、${tasksOn(iso).length}件のタスク` : ''}`);
-    button.addEventListener('click', () => { selectedDate = iso; calendarDate = parseDate(iso); render(); });
+    button.addEventListener('click', () => {
+      if (iso === selectedDate) { openDialog(); return; }
+      selectedDate = iso; calendarDate = parseDate(iso); render();
+    });
     grid.append(button);
+  }
+}
+function startOfWeek(iso) {
+  const date = parseDate(iso); const offset = (date.getDay() + 6) % 7; date.setDate(date.getDate() - offset); return date;
+}
+function renderWeekOverview() {
+  const container = $('#week-task-groups'); container.replaceChildren(); const monday = startOfWeek(selectedDate);
+  for (let index = 0; index < 7; index += 1) {
+    const date = new Date(monday); date.setDate(monday.getDate() + index); const iso = dateToISO(date); const tasksForDay = tasksOn(iso).sort((a, b) => (a.startTime || '99:99').localeCompare(b.startTime || '99:99'));
+    const group = document.createElement('article'); group.className = `weekday-group${iso === selectedDate ? ' is-selected' : ''}`;
+    group.innerHTML = `<button class="weekday-heading" type="button"><span>${['月','火','水','木','金','土','日'][index]}</span><time>${date.getMonth() + 1}/${date.getDate()}</time><b>${tasksForDay.length}</b></button><ul></ul>`;
+    group.querySelector('.weekday-heading').addEventListener('click', () => { selectedDate = iso; calendarDate = parseDate(iso); render(); });
+    const list = group.querySelector('ul');
+    tasksForDay.forEach(task => { const item = document.createElement('li'); const button = document.createElement('button'); button.type = 'button'; button.textContent = `${task.startTime || '時間未定'} ${task.title}`; button.className = isDone(task, iso) ? 'is-done' : ''; button.addEventListener('click', () => { selectedDate = iso; calendarDate = parseDate(iso); render(); openEditDialog(task); }); item.append(button); list.append(item); });
+    if (!tasksForDay.length) { const item = document.createElement('li'); item.className = 'no-week-task'; item.textContent = '予定なし'; list.append(item); }
+    container.append(group);
   }
 }
 function renderSchedule() {
@@ -113,7 +132,7 @@ function renderTasks() {
   const doneCount = current.filter(task => isDone(task, selectedDate)).length; const percent = current.length ? Math.round(doneCount / current.length * 100) : 0;
   $('#progress-text').textContent = `${doneCount} / ${current.length} 完了`; $('#progress-percent').textContent = `${percent}%`; $('#progress-ring').style.setProperty('--progress', `${percent}%`);
 }
-function render() { renderCalendar(); renderSchedule(); renderTasks(); }
+function render() { renderCalendar(); renderWeekOverview(); renderSchedule(); renderTasks(); }
 function notifiedTasks() { try { return JSON.parse(localStorage.getItem(NOTIFIED_KEY) || '{}'); } catch { return {}; } }
 function updateNotificationButton() {
   const button = $('#notification-button'); const message = $('#notification-message'); button.disabled = false; button.classList.remove('is-enabled');
