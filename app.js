@@ -120,23 +120,23 @@ function renderSchedule() {
   });
   const scheduleList = $('#schedule-list'); scheduleList.replaceChildren();
   $('#schedule-empty').hidden = true;
-  for (let hour = 6; hour <= 22; hour += 1) {
-    const slot = document.createElement('li'); slot.className = 'time-slot'; slot.style.setProperty('--slot-top', `${(hour - 6) * 48}px`);
+  for (let hour = 0; hour <= 24; hour += 1) {
+    const slot = document.createElement('li'); slot.className = 'time-slot'; slot.style.setProperty('--slot-top', `${hour * 60}px`);
     slot.innerHTML = `<time>${String(hour).padStart(2, '0')}:00</time><div class="slot-line"></div>`; scheduleList.append(slot);
   }
   if (selectedDate === dateToISO(new Date())) {
     const now = new Date(); const minutes = now.getHours() * 60 + now.getMinutes();
-    if (minutes >= 360 && minutes <= 1380) {
-      const line = document.createElement('li'); line.id = 'now-line'; line.className = 'now-line'; line.style.setProperty('--now-top', `${(minutes - 360) * 0.8}px`);
+    if (minutes >= 0 && minutes <= 1440) {
+      const line = document.createElement('li'); line.id = 'now-line'; line.className = 'now-line'; line.style.setProperty('--now-top', `${minutes}px`);
       line.innerHTML = `<span>${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}</span>`; scheduleList.append(line);
     }
   }
   scheduledWithLanes.forEach(({ task, lane }) => {
     const start = Number(task.startTime.slice(0, 2)) * 60 + Number(task.startTime.slice(3));
     const end = task.endTime ? Number(task.endTime.slice(0, 2)) * 60 + Number(task.endTime.slice(3)) : start + 30;
-    const visibleStart = Math.max(start, 360); const visibleEnd = Math.min(end, 1380); if (visibleEnd <= visibleStart) return;
+    const visibleStart = Math.max(start, 0); const visibleEnd = Math.min(end, 1440); if (visibleEnd <= visibleStart) return;
     const row = document.createElement('li'); row.className = `schedule-item${isDone(task, selectedDate) ? ' is-done' : ''}`;
-    row.style.setProperty('--task-top', `${(visibleStart - 360) * 0.8}px`); row.style.setProperty('--task-height', `${Math.max((visibleEnd - visibleStart) * 0.8, 34)}px`); row.style.left = `calc(58px + ${lane * 12}%)`; row.style.right = '4px'; row.style.zIndex = String(lane + 1);
+    row.style.setProperty('--task-top', `${visibleStart}px`); row.style.setProperty('--task-height', `${Math.max(visibleEnd - visibleStart, 42)}px`); row.style.left = `calc(66px + ${lane * 12}%)`; row.style.right = '4px'; row.style.zIndex = String(lane + 1);
     row.classList.toggle('is-overdue', isOverdue(task, selectedDate)); row.classList.toggle('is-selected', selectedScheduleTaskId === task.id && selectedScheduleDate === selectedDate); row.innerHTML = `<span class="schedule-dot"></span><time>${taskTime(task)}</time><strong></strong>`; row.querySelector('strong').textContent = task.title; enableScheduleDrag(row, task); scheduleList.append(row);
   });
   $('#schedule-count').textContent = scheduled.length ? `${scheduled.length}件の予定` : '';
@@ -153,9 +153,9 @@ function enableScheduleDrag(row, task) {
   row.addEventListener('pointermove', event => {
     if (!dragging || event.pointerId !== dragging.pointerId) return;
     if (Math.abs(event.clientY - dragging.startY) > 5) dragging.didMove = true;
-    const movedMinutes = Math.round(((event.clientY - dragging.startY) / 0.8) / 5) * 5;
-    const nextStart = Math.max(360, Math.min(1380 - dragging.duration, dragging.start + movedMinutes));
-    dragging.nextStart = nextStart; row.style.setProperty('--task-top', `${(nextStart - 360) * 0.8}px`);
+    const movedMinutes = Math.round((event.clientY - dragging.startY) / 5) * 5;
+    const nextStart = Math.max(0, Math.min(1440 - dragging.duration, dragging.start + movedMinutes));
+    dragging.nextStart = nextStart; row.style.setProperty('--task-top', `${nextStart}px`);
     row.querySelector('time').textContent = `${minutesToTime(nextStart)}${task.endTime ? ` 〜 ${minutesToTime(nextStart + dragging.duration)}` : ''}`;
   });
   row.addEventListener('pointerup', event => {
@@ -233,10 +233,10 @@ function showDailyCompletionEffect(date) {
 function updateNowLine() {
   if (selectedDate !== dateToISO(new Date())) return;
   const now = new Date(); const minutes = now.getHours() * 60 + now.getMinutes() + now.getSeconds() / 60;
-  if (minutes < 360 || minutes > 1380) { $('#now-line')?.remove(); return; }
+  if (minutes < 0 || minutes > 1440) { $('#now-line')?.remove(); return; }
   const line = $('#now-line');
   if (!line) { renderSchedule(); return; }
-  line.style.setProperty('--now-top', `${(minutes - 360) * 0.8}px`);
+  line.style.setProperty('--now-top', `${minutes}px`);
   line.querySelector('span').textContent = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 }
 function setupCollapsibles() {
