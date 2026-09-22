@@ -2,11 +2,14 @@ const STORAGE_KEY = 'sakutto-todo.tasks.v2';
 const LEGACY_KEY = 'sakutto-todo.tasks.v1';
 const THEME_KEY = 'sakutto-todo.theme.v1';
 const NOTIFIED_KEY = 'sakutto-todo.notified.v1';
+const PROFILE_KEY = 'sakutto-todo.profile.v1';
+const DAILY_CELEBRATED_KEY = 'sakutto-todo.daily-celebrated.v1';
 const $ = selector => document.querySelector(selector);
 const form = $('#task-form');
 const dialog = $('#task-dialog');
 const input = $('#task-input');
 const template = $('#task-template');
+const profileDialog = $('#profile-dialog');
 let selectedDate = dateToISO(new Date());
 let calendarDate = new Date(`${selectedDate}T00:00:00`);
 let editingTaskId = null;
@@ -22,6 +25,17 @@ function loadTasks() {
   } catch { return []; }
 }
 function saveTasks() { localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks)); }
+function celebratedDays() { try { return JSON.parse(localStorage.getItem(DAILY_CELEBRATED_KEY) || '[]'); } catch { return []; } }
+function loadProfile() { try { return JSON.parse(localStorage.getItem(PROFILE_KEY)); } catch { return null; } }
+function saveProfile(nickname) { localStorage.setItem(PROFILE_KEY, JSON.stringify({ nickname })); }
+function renderAppTitle() { const profile = loadProfile(); $('#app-title').innerHTML = profile?.nickname ? '' : 'サクッと<span>ToDo</span>'; if (profile?.nickname) $('#app-title').textContent = `${profile.nickname}の予定`; }
+function openProfileDialog(isEditing = false) {
+  const profile = loadProfile(); $('#nickname-input').value = profile?.nickname || '';
+  $('#profile-title').textContent = isEditing ? '名前を変更' : 'はじめまして';
+  $('#save-profile').textContent = isEditing ? '保存する' : 'はじめる';
+  $('#skip-profile').textContent = isEditing ? '名前を消す' : '入力せずにはじめる';
+  profileDialog.showModal(); setTimeout(() => $('#nickname-input').focus(), 80);
+}
 function toHalfWidth(value) { return value.replace(/[０-９．]/g, char => char === '．' ? '.' : String.fromCharCode(char.charCodeAt(0) - 0xFEE0)); }
 function parseInlineTime(value) {
   const match = value.match(/(?:_|＿)\s*([0-9０-９]{4})\s*[.．]\s*([0-9０-９]{4})\s*$/);
@@ -70,11 +84,11 @@ function startOfWeek(iso) {
   const date = parseDate(iso); const offset = (date.getDay() + 6) % 7; date.setDate(date.getDate() - offset); return date;
 }
 function renderWeekOverview() {
-  const container = $('#week-task-groups'); container.replaceChildren(); const monday = startOfWeek(dateToISO(new Date()));
+  const container = $('#week-task-groups'); container.replaceChildren(); const startDate = parseDate(dateToISO(new Date())); startDate.setDate(startDate.getDate() + 1);
   for (let index = 0; index < 7; index += 1) {
-    const date = new Date(monday); date.setDate(monday.getDate() + index); const iso = dateToISO(date); const tasksForDay = tasksOn(iso).sort((a, b) => (a.startTime || '99:99').localeCompare(b.startTime || '99:99'));
+    const date = new Date(startDate); date.setDate(startDate.getDate() + index); const iso = dateToISO(date); const tasksForDay = tasksOn(iso).sort((a, b) => (a.startTime || '99:99').localeCompare(b.startTime || '99:99'));
     const group = document.createElement('article'); group.className = `weekday-group${iso === selectedDate ? ' is-selected' : ''}`;
-    group.innerHTML = `<button class="weekday-heading" type="button"><span>${['月','火','水','木','金','土','日'][index]}</span><time>${date.getMonth() + 1}/${date.getDate()}</time><b>${tasksForDay.length}</b></button><ul></ul>`;
+    group.innerHTML = `<button class="weekday-heading" type="button"><span>${['日','月','火','水','木','金','土'][date.getDay()]}</span><time>${index === 0 ? '明日 ' : ''}${date.getMonth() + 1}/${date.getDate()}</time><b>${tasksForDay.length}</b></button><ul></ul>`;
     group.querySelector('.weekday-heading').addEventListener('click', () => { selectedDate = iso; calendarDate = parseDate(iso); render(); });
     const list = group.querySelector('ul');
     tasksForDay.forEach(task => { const item = document.createElement('li'); const button = document.createElement('button'); button.type = 'button'; button.textContent = `${task.startTime || '時間未定'} ${task.title}`; button.className = isDone(task, iso) ? 'is-done' : ''; button.addEventListener('click', () => { selectedDate = iso; calendarDate = parseDate(iso); render(); openEditDialog(task); }); item.append(button); list.append(item); });
@@ -125,7 +139,10 @@ function renderTasks() {
     item.classList.toggle('is-done', done); item.classList.toggle('is-overdue', isOverdue(task, selectedDate)); node.querySelector('.task-title').textContent = task.title; node.querySelector('.task-time').textContent = `${taskTime(task)}${recurrenceLabel(task.recurrence) ? ` ・ ${recurrenceLabel(task.recurrence)}` : ''}`;
     const complete = node.querySelector('.complete-button'); complete.textContent = done ? '完了済み' : '完了する';
     node.querySelector('.task-main').addEventListener('click', () => openEditDialog(task));
-    complete.addEventListener('click', () => { task.doneDates = done ? task.doneDates.filter(date => date !== selectedDate) : [...task.doneDates, selectedDate]; saveTasks(); render(); if (!done) showCompletionEffect(); });
+    complete.addEventListener('click', () => {
+      task.doneDates = done ? task.doneDates.filter(date => date !== selectedDate) : [...task.doneDates, selectedDate]; saveTasks(); render();
+      if (!done) { showCompletionEffect(); const dayTasks = tasksOn(selectedDate); if (dayTasks.length && dayTasks.every(item => isDone(item, selectedDate))) showDailyCompletionEffect(selectedDate); }
+    });
     node.querySelector('.delete-button').addEventListener('click', () => { if (task.recurrence !== 'none') { openEditDialog(task); return; } tasks = tasks.filter(item => item.id !== task.id); saveTasks(); render(); });
     list.append(node);
   });
@@ -161,6 +178,35 @@ function openDialog() { resetDialog(); dialog.showModal(); setTimeout(() => inpu
 function openEditDialog(task) { editingTaskId = task.id; input.value = task.title; $('#task-date').value = task.date; $('#start-time').value = task.startTime || ''; $('#end-time').value = task.endTime || ''; $('#repeat-select').value = task.recurrence; $('#dialog-title').textContent = 'タスクを編集'; form.querySelector('.add-button').textContent = '保存する'; $('#remove-repeat').hidden = task.recurrence === 'none'; dialog.showModal(); setTimeout(() => input.focus(), 80); }
 function closeDialog() { dialog.close(); resetDialog(); }
 function showCompletionEffect() { const effect = document.createElement('div'); effect.className = 'completion-effect'; effect.setAttribute('aria-hidden', 'true'); effect.innerHTML = '<span>✓</span><i></i><i></i><i></i><i></i><i></i><i></i><b>完了！</b>'; document.body.append(effect); effect.addEventListener('animationend', event => { if (event.target === effect) effect.remove(); }); }
+function showDailyCompletionEffect(date) {
+  const celebrated = celebratedDays(); if (celebrated.includes(date)) return;
+  const variations = [
+    ['🎉', '今日のミッション、コンプリート！'],
+    ['🌟', 'すごい！今日の自分に拍手！'],
+    ['🏆', '全タスク達成！おつかれさま！'],
+    ['🚀', '完璧な一日！この調子！'],
+    ['🍀', 'やりきったね。最高です！'],
+  ];
+  const [icon, message] = variations[Math.floor(Math.random() * variations.length)];
+  const effect = document.createElement('div'); effect.className = 'daily-completion-effect'; effect.setAttribute('aria-live', 'polite'); effect.innerHTML = `<span>${icon}</span><strong>${message}</strong><small>今日のタスクをすべて終えました</small>`;
+  document.body.append(effect); localStorage.setItem(DAILY_CELEBRATED_KEY, JSON.stringify([...celebrated.slice(-59), date]));
+  setTimeout(() => effect.remove(), 3200);
+}
+function setupCollapsibles() {
+  const bindings = [
+    ['#calendar-heading', '.calendar'],
+    ['#schedule-heading', '.schedule'],
+    ['#list-heading', '.task-area'],
+    ['#week-heading', '.week-overview'],
+  ];
+  bindings.forEach(([headingSelector, sectionSelector]) => {
+    const heading = $(headingSelector); const section = $(sectionSelector); const trigger = heading.closest('.section-heading, .task-toolbar, .calendar-head') || heading;
+    trigger.classList.add('collapse-trigger'); trigger.setAttribute('role', 'button'); trigger.setAttribute('tabindex', '0'); trigger.setAttribute('aria-expanded', 'true');
+    const toggle = () => { const collapsed = section.classList.toggle('is-collapsed'); trigger.setAttribute('aria-expanded', String(!collapsed)); };
+    trigger.addEventListener('click', event => { if (event.target.closest('button')) return; toggle(); });
+    trigger.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); toggle(); } });
+  });
+}
 
 $('#open-add').addEventListener('click', openDialog); $('#close-dialog').addEventListener('click', closeDialog); dialog.addEventListener('click', event => { if (event.target === dialog) closeDialog(); });
 $('#previous-month').addEventListener('click', () => { calendarDate = new Date(calendarDate.getFullYear(), calendarDate.getMonth() - 1, 1); renderCalendar(); });
@@ -171,6 +217,9 @@ $('#notification-button').addEventListener('click', async () => {
   if (Notification.permission === 'denied') { alert('通知がブロックされています。ブラウザまたは端末の設定から、このサイトの通知を許可してください。'); return; }
   await Notification.requestPermission(); updateNotificationButton(); checkOverdueTasks();
 });
+$('#profile-form').addEventListener('submit', event => { event.preventDefault(); saveProfile($('#nickname-input').value.trim().slice(0, 6)); profileDialog.close(); renderAppTitle(); });
+$('#skip-profile').addEventListener('click', () => { saveProfile(''); profileDialog.close(); renderAppTitle(); });
+$('#profile-button').addEventListener('click', () => openProfileDialog(true));
 form.addEventListener('submit', event => {
   event.preventDefault(); const inline = parseInlineTime(input.value.trim()); const title = inline?.title || input.value.trim(); if (!title) return;
   const data = new FormData(form); const startTime = inline?.startTime || data.get('startTime'); const endTime = inline?.endTime || data.get('endTime');
@@ -180,6 +229,7 @@ form.addEventListener('submit', event => {
   selectedDate = values.date; calendarDate = parseDate(values.date); saveTasks(); closeDialog(); render();
 });
 function setupTheme() { const saved = localStorage.getItem(THEME_KEY); if (saved === 'dark' || (!saved && matchMedia('(prefers-color-scheme: dark)').matches)) document.documentElement.classList.add('dark'); $('#theme-button').addEventListener('click', () => { const dark = document.documentElement.classList.toggle('dark'); localStorage.setItem(THEME_KEY, dark ? 'dark' : 'light'); }); }
-$('#today-label').textContent = 'タップして予定を追加'; setupTheme(); updateNotificationButton(); render(); checkOverdueTasks();
+$('#today-label').textContent = ''; setupTheme(); renderAppTitle(); updateNotificationButton(); setupCollapsibles(); render(); checkOverdueTasks();
+if (loadProfile() === null) openProfileDialog();
 setInterval(() => { if (selectedDate === dateToISO(new Date())) { renderSchedule(); renderTasks(); } checkOverdueTasks(); }, 60_000);
 if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./service-worker.js'));

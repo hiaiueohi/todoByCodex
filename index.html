@@ -15,11 +15,13 @@
       <header class="app-header">
         <div>
           <p class="eyebrow" id="today-label"></p>
-          <h1>サクッと<span>ToDo</span></h1>
+          <div class="title-row"><h1 id="app-title">サクッと<span>ToDo</span></h1><button class="icon-button profile-button" id="profile-button" type="button" aria-label="名前を編集" title="名前を編集">✎</button></div>
         </div>
-        <button class="icon-button" id="theme-button" type="button" aria-label="ダークモードに切り替え" title="テーマを切り替え">
-          <span aria-hidden="true">☾</span>
-        </button>
+        <div class="header-actions">
+          <button class="icon-button" id="theme-button" type="button" aria-label="ダークモードに切り替え" title="テーマを切り替え">
+            <span aria-hidden="true">☾</span>
+          </button>
+        </div>
       </header>
 
       <section class="calendar" aria-labelledby="calendar-heading">
@@ -32,15 +34,9 @@
         <div class="calendar-grid" id="calendar-grid"></div>
       </section>
 
-      <section class="week-overview" aria-labelledby="week-heading">
-        <div class="section-heading"><div><p class="eyebrow">今週</p><h2 id="week-heading">曜日ごとのタスク</h2></div></div>
-        <div class="week-task-groups" id="week-task-groups"></div>
-      </section>
-
       <section class="schedule" aria-labelledby="schedule-heading">
         <div class="section-heading">
           <div>
-            <p class="eyebrow">タイムライン</p>
             <h2 id="schedule-heading">一日のスケジュール</h2>
           </div>
           <span class="schedule-count" id="schedule-count">予定なし</span>
@@ -50,16 +46,15 @@
       </section>
 
       <section class="summary" aria-label="今日の進捗">
-        <div>
+        <div class="summary-progress">
           <p>今日の進捗</p>
           <strong id="progress-text">0 / 0 完了</strong>
+          <div class="progress-ring" id="progress-ring" aria-label="完了率 0%"><span id="progress-percent">0%</span></div>
         </div>
-        <div class="progress-ring" id="progress-ring" aria-label="完了率 0%"><span id="progress-percent">0%</span></div>
-      </section>
-
-      <section class="notification-setting" aria-label="通知設定">
-        <div><strong>期限切れの通知</strong><p id="notification-message">終了時刻を過ぎても未完了の予定をお知らせします。</p></div>
-        <button id="notification-button" type="button">通知を有効にする</button>
+        <div class="notification-setting" aria-label="通知設定">
+          <div><strong>期限切れの通知</strong><p id="notification-message">終了時刻を過ぎても未完了の予定をお知らせします。</p></div>
+          <button id="notification-button" type="button">通知を有効にする</button>
+        </div>
       </section>
 
       <nav class="filters" aria-label="タスクの期間">
@@ -79,6 +74,11 @@
           <h2>タスクはありません</h2>
           <p>右下の＋から、思いついたことを<br />すぐに追加しましょう。</p>
         </div>
+      </section>
+
+      <section class="week-overview" aria-labelledby="week-heading">
+        <div class="section-heading"><div><h2 id="week-heading">一週間の予定</h2></div></div>
+        <div class="week-task-groups" id="week-task-groups"></div>
       </section>
     </main>
 
@@ -123,6 +123,19 @@
         </fieldset>
         <button class="remove-repeat-button" id="remove-repeat" type="button" hidden>繰り返しをなくす</button>
         <button class="add-button" type="submit">追加する</button>
+      </form>
+    </dialog>
+
+    <dialog class="profile-dialog" id="profile-dialog" aria-labelledby="profile-title">
+      <form id="profile-form" method="dialog">
+        <div class="profile-icon">✦</div>
+        <h2 id="profile-title">はじめまして</h2>
+        <p>呼ばれたいニックネームを入力すると、<br />あなただけの予定表になります。</p>
+        <label class="sr-only" for="nickname-input">ニックネーム</label>
+        <input id="nickname-input" maxlength="6" autocomplete="nickname" placeholder="例：あや" />
+        <small>6文字まで・入力は任意です</small>
+        <button class="add-button" id="save-profile" type="submit">はじめる</button>
+        <button class="skip-profile" id="skip-profile" type="button">入力せずにはじめる</button>
       </form>
     </dialog>
 
