@@ -70,7 +70,7 @@ function startOfWeek(iso) {
   const date = parseDate(iso); const offset = (date.getDay() + 6) % 7; date.setDate(date.getDate() - offset); return date;
 }
 function renderWeekOverview() {
-  const container = $('#week-task-groups'); container.replaceChildren(); const monday = startOfWeek(selectedDate);
+  const container = $('#week-task-groups'); container.replaceChildren(); const monday = startOfWeek(dateToISO(new Date()));
   for (let index = 0; index < 7; index += 1) {
     const date = new Date(monday); date.setDate(monday.getDate() + index); const iso = dateToISO(date); const tasksForDay = tasksOn(iso).sort((a, b) => (a.startTime || '99:99').localeCompare(b.startTime || '99:99'));
     const group = document.createElement('article'); group.className = `weekday-group${iso === selectedDate ? ' is-selected' : ''}`;
