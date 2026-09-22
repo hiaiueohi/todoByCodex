@@ -14,6 +14,8 @@ const profileDialog = $('#profile-dialog');
 let selectedDate = dateToISO(new Date());
 let calendarDate = new Date(`${selectedDate}T00:00:00`);
 let editingTaskId = null;
+let selectedScheduleTaskId = null;
+let selectedScheduleDate = null;
 let tasks = loadTasks();
 
 function dateToISO(date) { return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`; }
@@ -63,6 +65,8 @@ function occursOn(task, iso) {
 function tasksOn(iso) { return tasks.filter(task => occursOn(task, iso)); }
 function isDone(task, iso) { return task.doneDates.includes(iso); }
 function taskTime(task) { return task.startTime ? `${task.startTime}${task.endTime ? ` 〜 ${task.endTime}` : ''}` : '時間未定'; }
+function minutesToTime(minutes) { const safe = Math.max(0, Math.min(1439, minutes)); return `${String(Math.floor(safe / 60)).padStart(2, '0')}:${String(safe % 60).padStart(2, '0')}`; }
+function taskDuration(task) { if (!task.endTime) return 30; return (Number(task.endTime.slice(0, 2)) * 60 + Number(task.endTime.slice(3))) - (Number(task.startTime.slice(0, 2)) * 60 + Number(task.startTime.slice(3))); }
 function dueMinutes(task) { if (!task.startTime) return null; const start = Number(task.startTime.slice(0, 2)) * 60 + Number(task.startTime.slice(3)); return task.endTime ? Number(task.endTime.slice(0, 2)) * 60 + Number(task.endTime.slice(3)) : start + 30; }
 function isOverdue(task, iso) { const now = new Date(); return iso === dateToISO(now) && !isDone(task, iso) && dueMinutes(task) !== null && now.getHours() * 60 + now.getMinutes() >= dueMinutes(task); }
 function selectedDateLabel() { return new Intl.DateTimeFormat('ja-JP', { month: 'long', day: 'numeric', weekday: 'short' }).format(parseDate(selectedDate)); }
@@ -100,7 +104,6 @@ function renderWeekOverview() {
     group.querySelector('.weekday-heading').addEventListener('click', () => { selectedDate = iso; calendarDate = parseDate(iso); render(); });
     const list = group.querySelector('ul');
     tasksForDay.forEach(task => { const item = document.createElement('li'); const button = document.createElement('button'); button.type = 'button'; button.textContent = `${task.startTime || '時間未定'} ${task.title}`; button.className = isDone(task, iso) ? 'is-done' : ''; button.addEventListener('click', () => { selectedDate = iso; calendarDate = parseDate(iso); render(); openEditDialog(task); }); item.append(button); list.append(item); });
-    if (!tasksForDay.length) { const item = document.createElement('li'); item.className = 'no-week-task'; item.textContent = '予定なし'; list.append(item); }
     container.append(group);
   }
 }
@@ -134,10 +137,37 @@ function renderSchedule() {
     const visibleStart = Math.max(start, 360); const visibleEnd = Math.min(end, 1380); if (visibleEnd <= visibleStart) return;
     const row = document.createElement('li'); row.className = `schedule-item${isDone(task, selectedDate) ? ' is-done' : ''}`;
     row.style.setProperty('--task-top', `${(visibleStart - 360) * 0.8}px`); row.style.setProperty('--task-height', `${Math.max((visibleEnd - visibleStart) * 0.8, 34)}px`); row.style.left = `calc(58px + ${lane * 12}%)`; row.style.right = '4px'; row.style.zIndex = String(lane + 1);
-    row.classList.toggle('is-overdue', isOverdue(task, selectedDate)); row.innerHTML = `<span class="schedule-dot"></span><time>${taskTime(task)}</time><strong></strong>`; row.querySelector('strong').textContent = task.title; scheduleList.append(row);
+    row.classList.toggle('is-overdue', isOverdue(task, selectedDate)); row.classList.toggle('is-selected', selectedScheduleTaskId === task.id && selectedScheduleDate === selectedDate); row.innerHTML = `<span class="schedule-dot"></span><time>${taskTime(task)}</time><strong></strong>`; row.querySelector('strong').textContent = task.title; enableScheduleDrag(row, task); scheduleList.append(row);
   });
   $('#schedule-count').textContent = scheduled.length ? `${scheduled.length}件の予定` : '';
   $('#schedule-heading').textContent = `${selectedDateLabel()}のスケジュール`;
+}
+function enableScheduleDrag(row, task) {
+  let dragging = null;
+  row.addEventListener('pointerdown', event => {
+    if (event.button !== undefined && event.button !== 0) return;
+    const start = Number(task.startTime.slice(0, 2)) * 60 + Number(task.startTime.slice(3));
+    dragging = { pointerId: event.pointerId, startY: event.clientY, start, duration: taskDuration(task), didMove: false };
+    row.setPointerCapture(event.pointerId); row.classList.add('is-dragging'); event.preventDefault();
+  });
+  row.addEventListener('pointermove', event => {
+    if (!dragging || event.pointerId !== dragging.pointerId) return;
+    if (Math.abs(event.clientY - dragging.startY) > 5) dragging.didMove = true;
+    const movedMinutes = Math.round(((event.clientY - dragging.startY) / 0.8) / 5) * 5;
+    const nextStart = Math.max(360, Math.min(1380 - dragging.duration, dragging.start + movedMinutes));
+    dragging.nextStart = nextStart; row.style.setProperty('--task-top', `${(nextStart - 360) * 0.8}px`);
+    row.querySelector('time').textContent = `${minutesToTime(nextStart)}${task.endTime ? ` 〜 ${minutesToTime(nextStart + dragging.duration)}` : ''}`;
+  });
+  row.addEventListener('pointerup', event => {
+    if (!dragging || event.pointerId !== dragging.pointerId) return;
+    const nextStart = dragging.nextStart; const didMove = dragging.didMove; row.releasePointerCapture(event.pointerId); row.classList.remove('is-dragging');
+    if (!didMove) {
+      if (selectedScheduleTaskId === task.id && selectedScheduleDate === selectedDate) openEditDialog(task);
+      else { selectedScheduleTaskId = task.id; selectedScheduleDate = selectedDate; renderSchedule(); }
+    } else if (nextStart !== undefined && nextStart !== dragging.start) { task.startTime = minutesToTime(nextStart); if (task.endTime) task.endTime = minutesToTime(nextStart + dragging.duration); saveTasks(); render(); }
+    dragging = null;
+  });
+  row.addEventListener('pointercancel', () => { if (!dragging) return; row.classList.remove('is-dragging'); dragging = null; renderSchedule(); });
 }
 function renderTasks() {
   const list = $('#task-list'); const current = tasksOn(selectedDate).sort((a, b) => Number(isDone(a, selectedDate)) - Number(isDone(b, selectedDate)) || (a.startTime || '99:99').localeCompare(b.startTime || '99:99'));
