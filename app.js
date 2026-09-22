@@ -136,7 +136,7 @@ function renderSchedule() {
     row.style.setProperty('--task-top', `${(visibleStart - 360) * 0.8}px`); row.style.setProperty('--task-height', `${Math.max((visibleEnd - visibleStart) * 0.8, 34)}px`); row.style.left = `calc(58px + ${lane * 12}%)`; row.style.right = '4px'; row.style.zIndex = String(lane + 1);
     row.classList.toggle('is-overdue', isOverdue(task, selectedDate)); row.innerHTML = `<span class="schedule-dot"></span><time>${taskTime(task)}</time><strong></strong>`; row.querySelector('strong').textContent = task.title; scheduleList.append(row);
   });
-  $('#schedule-count').textContent = scheduled.length ? `${scheduled.length}件の予定` : '予定なし';
+  $('#schedule-count').textContent = scheduled.length ? `${scheduled.length}件の予定` : '';
   $('#schedule-heading').textContent = `${selectedDateLabel()}のスケジュール`;
 }
 function renderTasks() {
